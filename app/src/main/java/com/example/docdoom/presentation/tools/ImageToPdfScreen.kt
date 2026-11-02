@@ -1,4 +1,8 @@
 package com.example.docdoom.presentation.tools
+
+import com.example.docdoom.data.database.DocDoomDatabase
+import com.example.docdoom.data.database.DocumentEntity
+import com.example.docdoom.data.database.DocumentRepository
 import android.content.ClipData
 import android.content.Context
 import android.content.Intent
@@ -130,14 +134,56 @@ fun ImageToPdfScreen(
                 isSaving = true
                 statusMessage = ""
                 try {
+                    // First write the PDF to the location chosen by the user.
                     withContext(Dispatchers.IO) {
                         context.contentResolver.openOutputStream(destinationUri, "w")?.use { output ->
                             source.inputStream().use { input -> input.copyTo(output) }
                         } ?: throw IOException("Android couldn't open the selected save location.")
                     }
+
                     savedDestinationUri = destinationUri
-                    savedDisplayName = queryDisplayName(context, destinationUri)
-                    statusMessage = "PDF saved successfully in the folder you selected."
+                    val displayName = queryDisplayName(context, destinationUri)
+                        ?: sanitizePdfFileName(pdfName)
+                    savedDisplayName = displayName
+
+                    // Keep access to the user-selected document when the provider permits it.
+                    try {
+                        context.contentResolver.takePersistableUriPermission(
+                            destinationUri,
+                            Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                                    Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                        )
+                    } catch (_: SecurityException) {
+                        // Some document providers do not offer persistable permissions.
+                    } catch (_: IllegalArgumentException) {
+                        // The URI may not support persistable permissions.
+                    }
+
+                    // Register the successfully written PDF in DocDoom's local library.
+                    try {
+                        val fileSize = withContext(Dispatchers.IO) {
+                            queryFileSize(context, destinationUri) ?: source.length()
+                        }
+                        val repository = DocumentRepository(
+                            DocDoomDatabase.getDatabase(context).documentDao()
+                        )
+                        withContext(Dispatchers.IO) {
+                            repository.insertDocument(
+                                DocumentEntity(
+                                    displayName = displayName,
+                                    uri = destinationUri.toString(),
+                                    mimeType = "application/pdf",
+                                    sizeBytes = fileSize,
+                                    createdAt = System.currentTimeMillis()
+                                )
+                            )
+                        }
+                        statusMessage = "PDF saved and added to your DocDoom library."
+                    } catch (libraryError: Exception) {
+                        statusMessage =
+                            "PDF saved, but couldn't add it to your DocDoom library: " +
+                                    (libraryError.localizedMessage ?: "Please try again.")
+                    }
                 } catch (error: Exception) {
                     statusMessage = "Couldn't save PDF: ${error.localizedMessage ?: "Please try again."}"
                 } finally {
@@ -1040,6 +1086,34 @@ private fun queryDisplayName(
             if (cursor.moveToFirst()) {
                 val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
                 if (nameIndex >= 0) cursor.getString(nameIndex) else null
+            } else {
+                null
+            }
+        }
+    } catch (_: Exception) {
+        null
+    }
+}
+
+private fun queryFileSize(
+    context: Context,
+    uri: Uri
+): Long? {
+    return try {
+        context.contentResolver.query(
+            uri,
+            arrayOf(OpenableColumns.SIZE),
+            null,
+            null,
+            null
+        )?.use { cursor ->
+            if (cursor.moveToFirst()) {
+                val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
+                if (sizeIndex >= 0 && !cursor.isNull(sizeIndex)) {
+                    cursor.getLong(sizeIndex)
+                } else {
+                    null
+                }
             } else {
                 null
             }
