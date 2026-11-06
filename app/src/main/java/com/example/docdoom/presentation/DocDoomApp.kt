@@ -71,6 +71,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.docdoom.presentation.tools.CompressImageScreen
+import com.example.docdoom.presentation.tools.CompressPdfScreen
 import com.example.docdoom.presentation.tools.ImageToPdfScreen
 import com.example.docdoom.presentation.tools.MergePdfScreen
 import com.example.docdoom.ui.components.ToolCard
@@ -217,6 +218,25 @@ fun DocDoomApp() {
                                 description = "Compression tool",
                                 icon = categoryIcon
                             )
+                        }
+                    )
+                    "Compress PDF" -> CompressPdfScreen(
+                        onBack = {
+                            selectedTool = availableTools.first { it.title == "Compress" }
+                        },
+                        onSaved = { uri, displayName, sizeBytes ->
+                            scope.launch {
+                                documentRepository.insertDocument(
+                                    DocumentEntity(
+                                        displayName = displayName,
+                                        uri = uri.toString(),
+                                        mimeType = "application/pdf",
+                                        sizeBytes = sizeBytes,
+                                        createdAt = System.currentTimeMillis(),
+                                        isFavorite = false
+                                    )
+                                )
+                            }
                         }
                     )
                     "Compress Image" -> CompressImageScreen(
