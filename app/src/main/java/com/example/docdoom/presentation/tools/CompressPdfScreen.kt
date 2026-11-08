@@ -114,7 +114,12 @@ fun CompressPdfScreen(
                             file.inputStream().use { it.copyTo(output) }
                         } ?: error("Couldn't create the destination PDF.")
                     }
-                    val name = uri.lastPathSegment?.substringAfterLast('/')?.ifBlank { "compressed.pdf" } ?: "compressed.pdf"
+                    val providerName = withContext(Dispatchers.IO) {
+                        pdfDetails(context, uri).first
+                    }
+                    val name = providerName
+                        .takeIf { it.isNotBlank() && it != "document.pdf" }
+                        ?: defaultCompressedName(sourceName.ifBlank { "Document.pdf" })
                     onSaved(uri, name, file.length())
                     status = "PDF saved and added to Recent Files."
                 } catch (e: Exception) {

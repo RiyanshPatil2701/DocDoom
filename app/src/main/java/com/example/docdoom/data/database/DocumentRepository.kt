@@ -1,3 +1,4 @@
+
 package com.example.docdoom.data.database
 
 import kotlinx.coroutines.flow.Flow
@@ -5,6 +6,7 @@ import kotlinx.coroutines.flow.Flow
 class DocumentRepository(
     private val documentDao: DocumentDao
 ) {
+
     val allDocuments: Flow<List<DocumentEntity>> =
         documentDao.getAllDocuments()
 
@@ -15,7 +17,20 @@ class DocumentRepository(
         documentDao.getRecentDocuments()
 
     suspend fun insertDocument(document: DocumentEntity): Long {
-        return documentDao.insertDocument(document)
+        return documentDao.insertDocumentAndMarkRecent(document)
+    }
+
+    suspend fun markAsRecent(documentId: Long) {
+        documentDao.upsertRecentDocument(
+            RecentDocumentEntity(
+                documentId = documentId,
+                lastOpenedAt = System.currentTimeMillis()
+            )
+        )
+    }
+
+    suspend fun removeFromRecents(documentId: Long) {
+        documentDao.removeFromRecents(documentId)
     }
 
     suspend fun updateDocument(document: DocumentEntity) {

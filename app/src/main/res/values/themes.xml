@@ -1,5 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-
-    <style name="Theme.DocDoom" parent="android:Theme.Material.Light.NoActionBar" />
+    <!--
+        Material 3 XML theme used by AndroidX PdfViewerFragment.
+        Background maps to the Android framework colorBackground attribute.
+    -->
+    <style name="Theme.DocDoom" parent="Theme.Material3.Light.NoActionBar">
+        <item name="colorPrimary">#16856B</item>
+        <item name="colorOnPrimary">#FFFFFFFF</item>
+        <item name="colorSecondary">#16856B</item>
+        <item name="colorOnSecondary">#FFFFFFFF</item>
+        <item name="colorSurface">#FFFFFFFF</item>
+        <item name="colorOnSurface">#202A27</item>
+        <item name="android:colorBackground">#F8FAF9</item>
+        <item name="colorOnBackground">#202A27</item>
+    </style>
 </resources>
