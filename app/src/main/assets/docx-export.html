@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DocDoom DOCX export</title>
+
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #fff;
+    }
+
+    canvas {
+      display: block;
+    }
+  </style>
+</head>
+
+<body>
+
+<script type="module">
+  import { DocxDocument } from './ooxml/docx.mjs';
+
+  let docx = null;
+  let nextIndex = 0;
+  let pageTotal = 0;
+  let busy = false;
+
+  function errorText(error) {
+    if (error && error.stack) return error.stack;
+    if (error && error.message) return error.message;
+    return String(error);
+  }
+
+  // Start DOCX loading and layout.
+  window.startDocxExport = async function (documentUrl) {
+    console.log('[DocDoom] startDocxExport called:', documentUrl);
+
+    try {
+      console.log('[DocDoom] Starting DocxDocument.load');
+
+      docx = await DocxDocument.load(documentUrl, {
+        mode: 'main',
+        useGoogleFonts: false,
+        progressiveLayout: false,
+        sliceLayout: true
+      });
+
+      // With progressiveLayout:false, load() is expected to finish layout.
+      // Do not call waitUntilLayoutComplete() here.
+      console.log('[DocDoom] DocxDocument.load completed');
+
+      pageTotal = docx.pageCount;
+      console.log('[DocDoom] Page count detected:', pageTotal);
+
+      if (!pageTotal || pageTotal < 1) {
+        throw new Error('The selected DOCX contains no printable pages.');
+      }
+
+      nextIndex = 0;
+      busy = false;
+      window.renderNextDocxPage = renderNextPage;
+
+      console.log('[DocDoom] Calling AndroidBridge.onReady');
+      AndroidBridge.onReady(pageTotal);
+      console.log('[DocDoom] AndroidBridge.onReady returned');
+
+    } catch (error) {
+      console.error('[DocDoom] DOCX load/setup failed:', errorText(error));
+      try {
+        AndroidBridge.onError(errorText(error));
+      } catch (bridgeError) {
+        console.error('[DocDoom] Could not call AndroidBridge.onError:', errorText(bridgeError));
+      }
+    }
+  };
+
+  // Render pages one by one.
+  async function renderNextPage() {
+    console.log('[DocDoom] renderNextPage called; busy=', busy, 'docxLoaded=', !!docx,
+                'nextIndex=', nextIndex, 'pageTotal=', pageTotal);
+
+    if (busy || !docx) {
+      console.warn('[DocDoom] Render request ignored because renderer is busy or DOCX is not loaded.');
+      return;
+    }
+
+    if (nextIndex >= pageTotal) {
+      console.log('[DocDoom] All pages rendered; destroying DOCX document');
+      try {
+        docx.destroy();
+      } catch (error) {
+        console.warn('[DocDoom] docx.destroy warning:', errorText(error));
+      }
+      docx = null;
+      console.log('[DocDoom] Calling AndroidBridge.onComplete');
+      AndroidBridge.onComplete(pageTotal);
+      return;
+    }
+
+    busy = true;
+    const index = nextIndex;
+    let canvas = null;
+
+    try {
+      console.log('[DocDoom] Starting page render:', index + 1, 'of', pageTotal);
+      canvas = document.createElement('canvas');
+
+      console.log('[DocDoom] Calling docx.renderPage for page:', index + 1);
+      await docx.renderPage(canvas, index, {
+        width: 1500,
+        dpr: 1
+      });
+      console.log('[DocDoom] docx.renderPage completed for page:', index + 1,
+                  'canvas=', canvas.width, 'x', canvas.height);
+
+      console.log('[DocDoom] Reading pageSize for page:', index + 1);
+      const pageSize = docx.pageSize(index);
+      console.log('[DocDoom] pageSize:', JSON.stringify(pageSize));
+
+      if (
+        !canvas.width ||
+        !canvas.height ||
+        !pageSize ||
+        !pageSize.widthPt ||
+        !pageSize.heightPt
+      ) {
+        throw new Error(
+          'The renderer produced an invalid page image at page ' + (index + 1) + '.'
+        );
+      }
+
+      console.log('[DocDoom] Encoding page as JPEG:', index + 1);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+      const jpeg = dataUrl.split(',')[1];
+      console.log('[DocDoom] JPEG encoding completed; base64 characters=', jpeg ? jpeg.length : 0);
+
+      if (!jpeg) {
+        throw new Error('Could not encode page ' + (index + 1) + ' as an image.');
+      }
+
+      console.log('[DocDoom] Calling AndroidBridge.onPageRendered for page:', index + 1);
+      AndroidBridge.onPageRendered(
+        index,
+        Math.round(pageSize.widthPt),
+        Math.round(pageSize.heightPt),
+        jpeg
+      );
+      console.log('[DocDoom] AndroidBridge.onPageRendered returned for page:', index + 1);
+
+      nextIndex += 1;
+      console.log('[DocDoom] Page render flow finished; nextIndex=', nextIndex);
+
+    } catch (error) {
+      console.error('[DocDoom] Page render failed:', errorText(error));
+      try {
+        AndroidBridge.onError(errorText(error));
+      } catch (bridgeError) {
+        console.error('[DocDoom] Could not report render error to Android:', errorText(bridgeError));
+      }
+    } finally {
+      if (canvas) {
+        canvas.width = 1;
+        canvas.height = 1;
+      }
+      busy = false;
+      console.log('[DocDoom] renderNextPage finally; busy reset to false');
+    }
+  }
+
+  window.addEventListener('error', function (event) {
+    console.error('[DocDoom] Uncaught window error:', event.message, event.filename, event.lineno);
+  });
+
+  window.addEventListener('unhandledrejection', function (event) {
+    console.error('[DocDoom] Unhandled promise rejection:', errorText(event.reason));
+  });
+</script>
+
+</body>
+</html>

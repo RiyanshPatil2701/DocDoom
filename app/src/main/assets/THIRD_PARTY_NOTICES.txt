@@ -1,0 +1,6 @@
+DocDoom bundles @silurus/ooxml (org.webjars.npm:silurus__ooxml), version 0.80.2.
+The upstream Office Open XML Viewer is distributed under the MIT License.
+Source: https://github.com/yukiyokotani/office-open-xml-viewer
+
+This application uses the renderer for local DOCX parsing and page rendering only.
+No document contents are uploaded to a server by this integration.

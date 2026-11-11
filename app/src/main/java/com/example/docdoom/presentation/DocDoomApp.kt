@@ -93,6 +93,8 @@ import com.example.docdoom.presentation.tools.CompressDocumentScreen
 import com.example.docdoom.presentation.tools.CompressFileScreen
 import com.example.docdoom.presentation.tools.ImageToPdfScreen
 import com.example.docdoom.presentation.tools.MergePdfScreen
+import com.example.docdoom.presentation.tools.WatermarkPdfScreen
+import com.example.docdoom.presentation.tools.DocToPdfScreen
 import com.example.docdoom.presentation.tools.PdfViewerScreen
 import com.example.docdoom.ui.components.ToolCard
 import com.example.docdoom.ui.components.StorageOverviewCard
@@ -139,6 +141,11 @@ private val availableTools = listOf(
         "Watermark PDF",
         "Mark your documents",
         Icons.Outlined.WaterDrop
+    ),
+    Tool(
+        "Doc to PDF",
+        "Convert Word documents to PDF",
+        Icons.Outlined.Description
     )
 )
 
@@ -508,6 +515,22 @@ fun DocDoomApp(
                             onSaved = { uri, displayName, sizeBytes ->
                                 scope.launch {
                                     recordSavedDocument(uri, displayName, "application/zip", sizeBytes)
+                                }
+                            }
+                        )
+                        "Doc to PDF" -> DocToPdfScreen(
+                            onBack = { selectedTool = null },
+                            onSaved = { uri, displayName, sizeBytes ->
+                                scope.launch {
+                                    recordSavedDocument(uri, displayName, "application/pdf", sizeBytes)
+                                }
+                            }
+                        )
+                        "Watermark PDF" -> WatermarkPdfScreen(
+                            onBack = { selectedTool = null },
+                            onSaved = { uri, displayName, sizeBytes ->
+                                scope.launch {
+                                    recordSavedDocument(uri, displayName, "application/pdf", sizeBytes)
                                 }
                             }
                         )
