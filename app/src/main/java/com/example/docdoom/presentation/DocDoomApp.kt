@@ -58,6 +58,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.ArrowDownward
 import androidx.compose.material.icons.outlined.Collections
+import androidx.compose.material.icons.outlined.ContentCut
+import androidx.compose.material.icons.outlined.ContentCut
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Folder
@@ -93,6 +95,8 @@ import com.example.docdoom.presentation.tools.CompressDocumentScreen
 import com.example.docdoom.presentation.tools.CompressFileScreen
 import com.example.docdoom.presentation.tools.ImageToPdfScreen
 import com.example.docdoom.presentation.tools.MergePdfScreen
+import com.example.docdoom.presentation.tools.SplitPdfScreen
+import com.example.docdoom.presentation.tools.SplitPdfScreen
 import com.example.docdoom.presentation.tools.WatermarkPdfScreen
 import com.example.docdoom.presentation.tools.DocToPdfScreen
 import com.example.docdoom.presentation.tools.scanner.DocumentCameraScreen
@@ -137,6 +141,11 @@ private val availableTools = listOf(
         "Merge PDF",
         "Combine documents",
         Icons.Outlined.MergeType
+    ),
+    Tool(
+        "Split PDF",
+        "Extract pages or split every page",
+        Icons.Outlined.ContentCut
     ),
     Tool(
         "Watermark PDF",
@@ -451,6 +460,14 @@ fun DocDoomApp(
                             onBack = {
                                 selectedTool = null
                             },
+                            onSaved = { uri, displayName, sizeBytes ->
+                                scope.launch {
+                                    recordSavedDocument(uri, displayName, "application/pdf", sizeBytes)
+                                }
+                            }
+                        )
+                        "Split PDF" -> SplitPdfScreen(
+                            onBack = { selectedTool = null },
                             onSaved = { uri, displayName, sizeBytes ->
                                 scope.launch {
                                     recordSavedDocument(uri, displayName, "application/pdf", sizeBytes)
